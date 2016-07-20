@@ -3,6 +3,8 @@ import java.io.*;
 import java.net.*;
 import java.util.Map;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Pipeline;
+
 import java.util.*;
 
 
@@ -11,7 +13,7 @@ import java.util.*;
  * Created by surya.kumar on 15/07/16.
  */
 public class HelperService {
-    public static String GetData(String urlToRead) throws Exception {
+    public  String getData(String urlToRead) throws Exception {
         StringBuilder result = new StringBuilder();
         try {
             URL url = new URL(urlToRead);
@@ -31,15 +33,17 @@ public class HelperService {
         return result.toString();
     }
 
-    public static String WriteData(String shipmentid, Map<String,String> map)  {
-        String RedisMap1=map.toString();
+    public  String writeData(Map<String, Map<String,String>> map)  {
         Jedis jedis = new Jedis("localhost");
-        String writeResponse=jedis.set(shipmentid, RedisMap1);
+        Pipeline p = jedis.pipelined();
+        for(Map.Entry<String, Map<String, String>> entry : map.entrySet())
+            p.set(entry.getKey(), entry.getValue().toString());
 
-        return writeResponse;
+        p.sync();
+        return "Done writing to redis";
     }
 
-    public static void flushall()  {
+    public  void flushall()  {
         Jedis jedis = new Jedis("localhost");
         jedis.flushAll();
 
