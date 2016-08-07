@@ -2,6 +2,8 @@ package com.flipkart;
 import java.io.*;
 import java.net.*;
 import java.util.Map;
+
+import org.json.JSONObject;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
 
@@ -33,10 +35,10 @@ public class HelperService {
         return result.toString();
     }
 
-    public  String writeData(Map<String, Map<String,String>> map)  {
+    public  String writeData(Map<String, JSONObject> map)  {
         Jedis jedis = new Jedis("localhost");
         Pipeline p = jedis.pipelined();
-        for(Map.Entry<String, Map<String, String>> entry : map.entrySet())
+        for(Map.Entry<String, JSONObject> entry : map.entrySet())
             p.set(entry.getKey(), entry.getValue().toString());
 
         p.sync();
@@ -61,8 +63,8 @@ public class HelperService {
             conn.setDoOutput(true);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
-            conn.setRequestProperty("username", "kaushik.dutta");
-            conn.setRequestProperty("password", "Lenovo22");
+            conn.setRequestProperty("username", "surya.kumar");
+            conn.setRequestProperty("password", "surya@123");
 
             String input = "{\"query_name\": \"es_shipment_to_order_item\",\"parameters\": {\"VAR_SHIPMENT_ID\": \"" + id + "\"}}";
             OutputStream os = conn.getOutputStream();

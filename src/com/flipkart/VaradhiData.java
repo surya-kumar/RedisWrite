@@ -1,6 +1,8 @@
 package com.flipkart;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -19,10 +21,10 @@ public class VaradhiData {
     public  String WriteDataToRedis() throws Exception  {
         try {
             final HelperService hs = new HelperService();
-            String url = "http://varadhi-admin.nm.flipkart.com/queues/vendor_marketplace_production/messages?sidelined=true&offset=0&limit=100000";
+            String url = "http://10.85.50.10/queues/vendor_marketplace_production/messages?sidelined=true&offset=0&limit=1000000";
             String Data = hs.getData(url);
             hs.flushall();
-            final String StatusUrl = "http://sp-911.nm.flipkart.com:9000/query/execute/";
+            final String StatusUrl = "http://10.85.50.55:9000/query/execute/";
             JSONArray newJArray = new JSONArray(Data);
             Map<String, JSONObject> requestMap = new HashMap<>();
             Map<String, Future<String>> responseMap = new HashMap<>();
@@ -39,48 +41,55 @@ public class VaradhiData {
                 JSONArray shipmentArray = new JSONArray(shipments);
                 requestMap.put(merchantReferenceId, reader);
 
-                for (int j = 0; j < shipmentArray.length(); j++) {
-                    String shipment_param = shipmentArray.getString(j);
-                    JSONObject shipmentReader = new JSONObject(shipment_param);
+
+
+//                for (int j = 0; j < shipmentArray.length(); j++) {
+//                    String shipment_param = shipmentArray.getString(j);
+//                    JSONObject shipmentReader = new JSONObject(shipment_param);
                     responseMap.put(merchantReferenceId, threadPool.submit(new Callable<String>() {
                         @Override
                         public String call() throws Exception {
-                            if (merchantReferenceId.startsWith("R-"))
-                            {
-                                merchantReferenceId.replace("R-","");
+                            if (merchantReferenceId.startsWith("R-") || merchantReferenceId.startsWith("R1-") ) {
+                                merchantReferenceId.replace("R-", "");
                             }
                             return hs.PostData(StatusUrl, merchantReferenceId);
                         }
                     }));
-                }
+
+//                }
             }
 
-            Map<String , Map<String, String>> dataMap = new HashMap<>();
 
+
+//            Map<String , Map<String, String>> dataMap = new HashMap<>();
+            Map<String ,JSONObject> dataMap = new HashMap<>();
             for(Map.Entry<String, JSONObject> entry : requestMap.entrySet()) {
                 JSONObject reader = entry.getValue();
                 String message_id = reader.getString("message_id");
-                final String merchantReferenceId = reader.getString("group_id");
+                String merchantReferenceId = reader.getString("group_id");
                 String http_response_code = reader.getString("http_response_code");
                 String Message = reader.getString("message");
+
                 JSONObject MessageReader = new JSONObject(Message);
                 String shipments = MessageReader.getString("shipments");
                 JSONArray shipmentArray = new JSONArray(shipments);
 
                 for (int j = 0; j < shipmentArray.length(); j++) {
-
                     String shipment_param = shipmentArray.getString(j);
                     JSONObject shipmentReader = new JSONObject(shipment_param);
                     String origin_pincode = shipmentReader.getString("origin_pincode");
+
                     String destination_pincode = shipmentReader.getString("destination_pincode");
                     Future<String> futureResponse = responseMap.get(entry.getKey());
                     String orderId = "NA";
                     String orderStatus = "NA";
-                    if(null != futureResponse.get()) {
+
+                    if(futureResponse.get() !="") {
                         JSONObject Readerstatus = new JSONObject(futureResponse.get());
                         String hit1 = Readerstatus.getString("hits");
                         JSONObject Readerhits = new JSONObject(hit1);
                         String hit2 = Readerhits.getString("hits");
+
                         JSONArray hitArray = new JSONArray(hit2);
                         if (hitArray.length() != 0) {
                             String hit3 = hitArray.getString(0);
@@ -90,17 +99,20 @@ public class VaradhiData {
                             String orderOb = req_fields1.getString("order_id");
                             JSONArray orderArray = new JSONArray(orderOb);
                             orderId = orderArray.getString(0);
-
                             String statusOb = req_fields1.getString("units.state");
                             JSONArray statusArray = new JSONArray(statusOb);
                             orderStatus = statusArray.getString(0);
+
                         }
                     }
                     //  System.out.println(fields);
+
+
                     String seller_id = shipmentReader.getString("seller_id");
                     String size = shipmentReader.getString("size");
                     String hand_to_hand_pickup = shipmentReader.getString("hand_to_hand_pickup");
                     String amount_to_collect = shipmentReader.getString("amount_to_collect");
+
 
                     Map<String, String> redisMap = new HashMap<>();
                     redisMap.put("message_id", message_id);
@@ -114,12 +126,17 @@ public class VaradhiData {
                     redisMap.put("order", orderId);
                     redisMap.put("order_status", orderStatus);
 
+JSONObject redisjson= new JSONObject(redisMap);
+                    dataMap.put(merchantReferenceId, redisjson);
 
-                    dataMap.put(merchantReferenceId, redisMap);
+
 
                 }
+
             }
 
+
+System.out.println(dataMap);
             String writeResponse1=hs.writeData(dataMap);
             System.out.println(writeResponse1);
 
